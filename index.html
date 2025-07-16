@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini Netflix</title>
+  <style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background-color: #000;
+    color: #fff;
+  }
+
+  header {
+    text-align: center;
+    padding: 20px;
+  }
+
+  #searchInput {
+    padding: 10px;
+    width: 80%;
+    max-width: 400px;
+    margin-top: 10px;
+    font-size: 1em;
+  }
+
+  .movie-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 20px;
+  }
+
+  .movie-card {
+    background-color: #1c1c1c;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .movie-card img {
+    width: 100%;
+    height: auto;
+  }
+
+  .card-footer {
+    padding: 10px;
+    text-align: center;
+    background-color: #222;
+  }
+
+  .card-footer button {
+    margin: 5px;
+    padding: 5px 10px;
+    background: #444;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .card-footer button:hover {
+    background: #666;
+  }
+
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎬 Mini Netflix</h1>
+    <input type="text" id="searchInput" placeholder="Search movies..." />
+    <p>
+      Join our <a href="https://t.me/+6YMikWo4851jYWM0" target="_blank">Telegram Channel</a><br />
+      Chat with <a href="https://t.me/Arenamoviesbot?start=ar1752186065" target="_blank">Arena Bot</a>
+    </p>
+    <p id="userInfo"></p>
+  </header>
+  <main>
+    <section id="movies" class="movie-grid"></section>
+  </main>
+
+  <!-- Telegram WebApp JS SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const API_KEY = '3633b89cd5c59bab33c1e3a7f0615f42';
+    const TRENDING_URL = `https://api.themoviedb.org/3/trending/movie/week?api_key=${API_KEY}`;
+    const SEARCH_URL = `https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=`;
+    const IMG_BASE = 'https://image.tmdb.org/t/p/w500';
+    const BOT_TOKEN = '7607501903:AAG079fg4K5jY3kw70ie2FDqIT0Kaxm7K-w';
+    const BOT_USERNAME = '@Moviestitle_bot';
+
+    let userId = null;
+    let searchHistory = [];
+
+    window.Telegram.WebApp.ready();
+    const tgUser = window.Telegram.WebApp.initDataUnsafe.user;
+
+    if (tgUser) {
+      userId = tgUser.id;
+      document.getElementById('userInfo').innerText = `Welcome, ${tgUser.first_name} (@${tgUser.username})`;
+
+      // Send welcome message via Telegram Bot
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: userId,
+          text: `🎬 Hello ${tgUser.first_name}, welcome to Arena Movies!`
+        })
+      });
+    }
+
+    async function fetchMovies(url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      displayMovies(data.results);
+    }
+
+    function displayMovies(movies) {
+      const container = document.getElementById('movies');
+      container.innerHTML = movies.map(movie => `
+        <div class="movie-card">
+          <img src="${IMG_BASE}${movie.poster_path}" alt="${movie.title}" />
+          <div class="card-footer">
+            <button onclick="likeMovie('${movie.id}')">❤️ Like</button>
+            <button onclick="commentMovie('${movie.title}')">💬 Comment</button>
+            <button onclick="fetchTrailer(${movie.id})">▶️ Trailer</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('searchInput').addEventListener('input', async (e) => {
+      const query = e.target.value.trim();
+      if (query.length > 2) {
+        searchHistory.push(query);
+
+        if (userId) {
+          // Send search history to bot or your backend
+          fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: userId,
+              text: `🔎 You searched for: "${query}"`
+            })
+          });
+        }
+
+        fetchMovies(SEARCH_URL + encodeURIComponent(query));
+      } else {
+        fetchMovies(TRENDING_URL);
+      }
+    });
+
+    function likeMovie(id) {
+      alert(`Liked movie ID: ${id}`);
+    }
+
+    function commentMovie(title) {
+      const comment = prompt(`Comment on "${title}":`);
+      if (comment && userId) {
+        fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: userId,
+            text: `💬 Your comment on "${title}": ${comment}`
+          })
+        });
+      }
+    }
+
+    async function fetchTrailer(id) {
+      const res = await fetch(`https://api.themoviedb.org/3/movie/${id}/videos?api_key=${API_KEY}`);
+      const data = await res.json();
+      const trailer = data.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+      if (trailer) {
+        window.open(`https://www.youtube.com/watch?v=${trailer.key}`, '_blank');
+      } else {
+        alert('Trailer not available');
+      }
+    }
+
+    fetchMovies(TRENDING_URL);
+  </script>
+</body>
+</html>
